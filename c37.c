@@ -44,9 +44,11 @@ c37_packet *get_c37_packet(char *data) {
     data = get_big_endian(data, 4, (unsigned char *) &pkt->fracsec);
     data = get_big_endian(data, 2, (unsigned char *) &pkt->stat);
     data = get_big_endian(data, 4, (unsigned char *) &pkt->voltage_amplitude);
-    data = get_big_endian(data, 4, (unsigned char *) &pkt->voltage_angle);
-    data = get_big_endian(data, 4, (unsigned char *) &pkt->current_amplitude);
-    data = get_big_endian(data, 4, (unsigned char *) &pkt->current_angle);
+    data = get_big_endian(data, 14, (unsigned char *) &pkt->voltage_angle);
+    //data = get_big_endian(data, 16, (unsigned char *) &pkt->voltage_3amplitude);
+    //data = get_big_endian(data, 16, (unsigned char *) &pkt->voltage_3angle);
+    data = get_big_endian(data, 14, (unsigned char *) &pkt->current_amplitude);
+    data = get_big_endian(data, 16, (unsigned char *) &pkt->current_angle);
     data = get_big_endian(data, 4, (unsigned char *) &pkt->voltage_frequency);
     data = get_big_endian(data, 4, (unsigned char *) &pkt->delta_frequency);
     data = get_big_endian(data, 2, (unsigned char *) &pkt->crc);
@@ -81,9 +83,11 @@ void form_c37_packet(char *buf, c37_packet *pkt) {
     ptr = put_big_endian(ptr, 4, (unsigned char *) &pkt->fracsec);
     ptr = put_big_endian(ptr, 2, (unsigned char *) &pkt->stat);
     ptr = put_big_endian(ptr, 4, (unsigned char *) &pkt->voltage_amplitude);
-    ptr = put_big_endian(ptr, 4, (unsigned char *) &pkt->voltage_angle);
-    ptr = put_big_endian(ptr, 4, (unsigned char *) &pkt->current_amplitude);
-    ptr = put_big_endian(ptr, 4, (unsigned char *) &pkt->current_angle);
+    ptr = put_big_endian(ptr, 14, (unsigned char *) &pkt->voltage_angle);
+    //ptr = put_big_endian(ptr, 16, (unsigned char *) &pkt->voltage_3amplitude);
+    //ptr = put_big_endian(ptr, 16, (unsigned char *) &pkt->voltage_3angle);
+    ptr = put_big_endian(ptr, 14, (unsigned char *) &pkt->current_amplitude);
+    ptr = put_big_endian(ptr, 12, (unsigned char *) &pkt->current_angle);
     ptr = put_big_endian(ptr, 4, (unsigned char *) &pkt->voltage_frequency);
     ptr = put_big_endian(ptr, 4, (unsigned char *) &pkt->delta_frequency);
     ptr = put_big_endian(ptr, 2, (unsigned char *) &pkt->crc);
@@ -97,32 +101,39 @@ void write_c37_packet(FILE *output, c37_packet *pkt) {
 	fwrite(buf, pkt->framesize, 1, output);
 }
 
-void write_c37_packet_readable(FILE *output, c37_packet *pkt) {
+int write_c37_packet_readable(FILE *output, c37_packet *pkt) {
 	time_t t = pkt->soc;
     int usec = pkt->fracsec & 0xFFFFFF;
 	char *now = ctime(&t);
-	fprintf(output, "%.*s:%d - %f %f %f %f\n", (int) (strlen(now) - 1), now,
-		usec / 1000,
-        pkt->voltage_amplitude, pkt->voltage_angle,
-        pkt->current_amplitude, pkt->current_angle);
+	int datelen = strlen(now);
+	char *last_four = &now[datelen-5];
+//	if(usec==0&&strcmp(last_four,"2016\n")==0)
+{
+	fprintf(output, "%.*s %f %f\n",(int) (strlen(now) - 1), now,
+        pkt->voltage_amplitude, pkt->voltage_frequency);
 }
-
+return 0;
+}
 
 void main()
 {
 char *line=NULL;
 ssize_t read;
 size_t len=0;
-FILE *f= fopen("c37dat.txt","r");
-FILE *output=fopen("output.txt","a+");
-while ((read=getline(&line,&len,f))!= -1)
+int us=0;
+char buffer[75];
+FILE *f= fopen("tornado.txt","rb");
+FILE *output=fopen("newtest.txt","w+");
+
+//while ((read=getline(&line,&len,f))!= -1)
+while (fread(buffer,75,1,f))
 {
-char *data = line;
+char *data = buffer;
 c37_packet *pkt = get_c37_packet(data);
 //write_c37_packet(output,pkt);
 write_c37_packet_readable(output,pkt);
 }
+
 fclose(output);
 fclose(f);
 }
-
